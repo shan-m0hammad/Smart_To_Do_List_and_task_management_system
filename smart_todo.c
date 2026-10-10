@@ -40,36 +40,6 @@ QueueNode *queueFront = NULL, *queueRear = NULL;
 UndoNode *undoTop = NULL;
 int nextId = 1;
 
-/* Hash map from task ID to task pointer, using separate chaining. */
-#define MAP_BUCKETS 101
-typedef struct MapEntry { int id; Task *task; struct MapEntry *next; } MapEntry;
-MapEntry *taskMap[MAP_BUCKETS];
-unsigned int hashId(int id) { return (unsigned int)id % MAP_BUCKETS; }
-void clearTaskMap(void) {
-    int i;
-    for (i = 0; i < MAP_BUCKETS; ++i) {
-        MapEntry *entry = taskMap[i];
-        while (entry) { MapEntry *next = entry->next; free(entry); entry = next; }
-        taskMap[i] = NULL;
-    }
-}
-void rebuildTaskMap(void) {
-    Task *task;
-    clearTaskMap();
-    for (task = head; task; task = task->next) {
-        unsigned int bucket = hashId(task->id);
-        MapEntry *entry = (MapEntry *)malloc(sizeof(MapEntry));
-        if (!entry) { printf("Hash-map memory allocation failed.\\n"); return; }
-        entry->id = task->id; entry->task = task;
-        entry->next = taskMap[bucket]; taskMap[bucket] = entry;
-    }
-}
-Task *mapFindTask(int id) {
-    MapEntry *entry = taskMap[hashId(id)];
-    while (entry) { if (entry->id == id) return entry->task; entry = entry->next; }
-    return NULL;
-}
-
 void trimNewline(char *s) {
     s[strcspn(s, "\n")] = '\0';
 }
@@ -129,61 +99,6 @@ Task *findTask(int id) {
     while (cur) { if (cur->id == id) return cur; cur = cur->next; }
     return NULL;
 }
-
-/* Binary search on a temporary sorted array of task pointers. */
-void binarySearchTask(void) {
-    int id = readInt("Task ID for binary search: ", 1, 1000000000);
-    int count = 0, i, low, high;
-    Task *cur, **items;
-    for (cur = head; cur; cur = cur->next) count++;
-    if (!count) { printf("No tasks available.\\n"); return; }
-    items = (Task **)malloc((size_t)count * sizeof(Task *));
-    if (!items) { printf("Memory allocation failed.\\n"); return; }
-    i = 0;
-    for (cur = head; cur; cur = cur->next) items[i++] = cur;
-    for (i = 1; i < count; ++i) {
-        Task *key = items[i];
-        int j = i - 1;
-        while (j >= 0 && items[j]->id > key->id) { items[j + 1] = items[j]; --j; }
-        items[j + 1] = key;
-    }
-    low = 0; high = count - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (items[mid]->id == id) { printTask(items[mid]); free(items); return; }
-        if (items[mid]->id < id) low = mid + 1;
-        else high = mid - 1;
-    }
-    printf("Task ID %d not found by binary search.\\n", id);
-    free(items);
-}
-
-/* Max-heap priority queue of pending tasks. */
-void showHighestPriority(void) {
-    int size = 0, i;
-    Task *heap[10000], *cur;
-    for (cur = head; cur; cur = cur->next) {
-        if (cur->completed) continue;
-        if (size >= 10000) { printf("Priority queue capacity reached.\\n"); break; }
-        i = size++;
-        heap[i] = cur;
-        while (i > 0) {
-            int parent = (i - 1) / 2;
-            if (heap[parent]->priority >= heap[i]->priority) break;
-            { Task *tmp = heap[parent]; heap[parent] = heap[i]; heap[i] = tmp; }
-            i = parent;
-        }
-    }
-    if (!size) { printf("No pending tasks.\\n"); return; }
-    printf("Highest-priority pending task (max-heap priority queue):\\n");
-    printTask(heap[0]);
-}
-void searchTaskByMap(void) {
-    int id = readInt("Task ID to find using hash map: ", 1, 1000000000);
-    Task *task = mapFindTask(id);
-    if (task) printTask(task);
-    else printf("Task ID %d not found in hash map.\\n", id);
-}
 const char *priorityName(int p) {
     if (p == 3) return "High";
     if (p == 2) return "Medium";
@@ -218,7 +133,6 @@ void addTask(void) {
     t->priority = readInt("Priority (1=Low, 2=Medium, 3=High): ", 1, 3);
     saveUndo();
     appendTask(t);
-    rebuildTaskMap();
     printf("Task added with ID %d.\n", t->id);
 }
 void updateTask(void) {
@@ -237,7 +151,6 @@ void updateTask(void) {
     if (buf[0]) snprintf(t->deadline, sizeof(t->deadline), "%.*s", (int)sizeof(t->deadline) - 1, buf);
     printf("Current priority: %s\n", priorityName(t->priority));
     t->priority = readInt("New priority (1=Low, 2=Medium, 3=High): ", 1, 3);
-    rebuildTaskMap();
     printf("Task updated.\n");
 }
 void deleteTask(void) {
@@ -248,7 +161,6 @@ void deleteTask(void) {
     saveUndo();
     if (prev) prev->next = cur->next; else head = cur->next;
     free(cur);
-    rebuildTaskMap();
     printf("Task deleted.\n");
 }
 void toggleComplete(void) {
@@ -257,7 +169,6 @@ void toggleComplete(void) {
     if (!t) { printf("Task not found.\n"); return; }
     saveUndo();
     t->completed = !t->completed;
-    rebuildTaskMap();
     printf("Task marked %s.\n", t->completed ? "completed" : "pending");
 }
 void searchTask(void) {
@@ -295,7 +206,6 @@ void sortTasks(void) {
         }
         end = cur;
     }
-    rebuildTaskMap();
     printf("Tasks sorted.\n");
     displayTasks(0);
 }
@@ -326,7 +236,6 @@ void undoOperation(void) {
     freeList(head);
     head = u->snapshot;
     u->snapshot = NULL;
-    rebuildTaskMap();
     free(u);
     printf("Last task-list operation undone.\n");
 }
@@ -355,11 +264,9 @@ void loadTasks(void) {
         } else free(t);
     }
     fclose(f);
-    rebuildTaskMap();
 }
 void cleanup(void) {
     freeList(head);
-    clearTaskMap();
     while (undoTop) { UndoNode *u = undoTop; undoTop = u->next; freeList(u->snapshot); free(u); }
     while (queueFront) { QueueNode *q = queueFront; queueFront = q->next; free(q); }
 }
@@ -371,9 +278,8 @@ int main(void) {
         printf("1 Add task\n2 Display all tasks\n3 Display pending tasks\n4 Display completed tasks\n");
         printf("5 Update task\n6 Delete task\n7 Mark complete/pending\n8 Search by title\n");
         printf("9 Sort tasks\n10 Enqueue task for FIFO processing\n11 Process next queued task\n");
-        printf("12 Undo last task-list operation\n13 Binary search by task ID\n14 Search by task ID (hash map)\n");
-        printf("15 Show highest-priority pending task (priority queue)\n16 Save tasks\n0 Save and exit\n");
-        choice = readInt("Choose: ", 0, 16);
+        printf("12 Undo last task-list operation\n13 Save tasks\n0 Save and exit\n");
+        choice = readInt("Choose: ", 0, 13);
         switch (choice) {
             case 1: addTask(); break;
             case 2: displayTasks(0); break;
@@ -387,10 +293,7 @@ int main(void) {
             case 10: enqueueTask(); break;
             case 11: processQueue(); break;
             case 12: undoOperation(); break;
-            case 13: binarySearchTask(); break;
-            case 14: searchTaskByMap(); break;
-            case 15: showHighestPriority(); break;
-            case 16: saveTasks(); break;
+            case 13: saveTasks(); break;
             case 0: saveTasks(); break;
         }
     } while (choice != 0);
