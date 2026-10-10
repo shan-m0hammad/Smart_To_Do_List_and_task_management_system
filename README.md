@@ -22,14 +22,11 @@ Each task stores an ID, title, description, category, deadline, priority, and co
 - Add, display, update, and delete tasks
 - Display all, pending, or completed tasks
 - Mark a task completed or pending
-- Search tasks by title and task ID
-- Binary search by task ID using a sorted ID view
-- C implementation: hash-map lookup by task ID
+- Search tasks by title
 - Sort tasks by priority or deadline
 - Process tasks in FIFO order using a queue
 - Undo selected task-list operations using a stack
-- C version: max-heap priority queue, hash map (separate chaining), and binary search
-- C++ version: show the highest-priority pending task, search by category using a map, and binary search by task ID
+- C++ version: show the highest-priority pending task and search by category
 - Save and load tasks using local text files
 
 ## Data Structures & Algorithms Used
@@ -42,18 +39,15 @@ Each task stores an ID, title, description, category, deadline, priority, and co
 | Linked list (`list`) (C++) | Maintain a linked-list view of task IDs |
 | Queue | Process queued tasks in FIFO order |
 | Stack | Store task-list snapshots for Undo |
-| Priority queue / max-heap (C) | Identify the highest-priority pending task |
-| Priority queue / heap (C++) | Identify the highest-priority pending task |
-| Hash map (C, separate chaining) | Look up tasks by ID |
-| Map (C++) | Index tasks by category |
-| Linear search | Find tasks by title |
-| Binary search (C and C++) | Find a task by ID using sorted IDs |
+| Priority queue / heap (C++) | Identify a high-priority pending task |
+| Map / hashing-style index (C++) | Find tasks by category |
+| Linear search | Find task IDs and titles |
 | Sorting | Order tasks by priority or deadline |
 | File handling | Persist tasks between program runs |
 
 ## Project Files
-- `smart_todo.c` — C implementation using a linked list, queue, undo stack, max-heap priority queue, hash map, linear/binary search, sorting, and file handling.
-- `smart_todo.cpp` — C++ implementation using STL containers, priority queue, map, linear/binary search, sorting, undo, and file handling.
+- `smart_todo.c` — C implementation using a linked list, queue, undo stack, searching, sorting, and file handling.
+- `smart_todo.cpp` — C++ implementation using STL containers, task management, searching, sorting, priority handling, undo, and file handling.
 - `README.md` — Project documentation.
 
 ## Requirements
