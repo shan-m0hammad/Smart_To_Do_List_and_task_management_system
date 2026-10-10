@@ -157,6 +157,24 @@ public:
         }
         if (!count) cout << "No task matched that title.\n";
     }
+    void binarySearchTaskById() const {
+        vector<const Task*> sorted;
+        sorted.reserve(tasks.size());
+        for (const auto &task : tasks) sorted.push_back(&task);
+        sort(sorted.begin(), sorted.end(), [](const Task *a, const Task *b) {
+            return a->id < b->id;
+        });
+        int id = readInt("Task ID for binary search: ", 1, 1000000000);
+        int low = 0, high = static_cast<int>(sorted.size()) - 1;
+        while (low <= high) {
+            int mid = low + (high - low) / 2;
+            if (sorted[mid]->id == id) { printTask(*sorted[mid]); return; }
+            if (sorted[mid]->id < id) low = mid + 1;
+            else high = mid - 1;
+        }
+        cout << "Task ID " << id << " not found by binary search.\\n";
+    }
+
     void sortTasks() {
         int mode = readInt("Sort by: 1=Priority (high first), 2=Deadline (earliest first): ", 1, 2);
         saveUndo();
@@ -254,8 +272,8 @@ public:
                  << "5 Update task\n6 Delete task\n7 Mark complete/pending\n8 Search by title\n"
                  << "9 Sort tasks\n10 Enqueue task for FIFO processing\n11 Process next queued task\n"
                  << "12 Show highest-priority pending task\n13 Search by category (map)\n14 Undo last task-list operation\n"
-                 << "15 Save tasks\n0 Save and exit\n";
-            choice = readInt("Choose: ", 0, 15);
+                 << "15 Save tasks\n16 Binary search by task ID\n0 Save and exit\n";
+            choice = readInt("Choose: ", 0, 16);
             switch (choice) {
                 case 1: addTask(); break;
                 case 2: displayTasks(); break;
@@ -272,6 +290,7 @@ public:
                 case 13: showCategory(); break;
                 case 14: undo(); break;
                 case 15: saveTasks(); cout << "Tasks saved.\n"; break;
+                case 16: binarySearchTaskById(); break;
                 case 0: saveTasks(); cout << "Goodbye.\n"; break;
             }
         } while (choice != 0);
